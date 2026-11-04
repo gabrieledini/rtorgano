@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Organigramma Giunta regionale toscana</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  /* Identità visiva Regione Toscana: rosso istituzionale + i quattro colori del logotipo */
+  --rt:#c4001a; --rt-dark:#9a0014;
+  --diritti:#0083c4; --innovazione:#00843d; --sostenibilita:#d98e00; --neutro:#6b7480;
+  --paper:#ffffff; --panel:#f2f4f6; --ink:#1a1f24; --muted:#5c6670; --rule:#d6dbe0; --slim:#2a2f35;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --rt:#e0303f; --rt-dark:#a8101f;
+    --diritti:#4bb3ea; --innovazione:#3dbb73; --sostenibilita:#f0b23c; --neutro:#9aa4ae;
+    --paper:#15191d; --panel:#1f252b; --ink:#e8ecef; --muted:#9ba5ae; --rule:#2e363e; --slim:#0d1013;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.5 "Titillium Web",system-ui,sans-serif;display:flex;flex-direction:column}
+.slim{background:var(--slim);color:#fff;font-size:.8rem;padding:5px 16px;display:flex;justify-content:space-between;gap:12px}
+.slim a{color:#fff;text-decoration:none;font-weight:600}
+.slim span{opacity:.75}
+.testata{background:var(--rt);color:#fff;padding:12px 16px 14px;display:flex;align-items:center;gap:14px}
+.marchio{flex:none;width:40px;height:40px;border:2px solid #fff;border-radius:4px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;padding:4px}
+.marchio i:nth-child(1){background:#4bb3ea}.marchio i:nth-child(2){background:#fff}.marchio i:nth-child(3){background:#3dbb73}.marchio i:nth-child(4){background:#f0b23c}
+h1{font-size:1.3rem;line-height:1.15;margin:0;font-weight:700}
+h1 small{display:block;font-weight:400;font-size:.85rem;opacity:.9}
+.toolbar{padding:10px 16px;border-bottom:1px solid var(--rule);background:var(--paper);position:relative;z-index:3}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-weight:600;border:2px solid var(--rt);background:var(--rt);color:#fff;border-radius:4px;padding:7px 16px;cursor:pointer}
+button:hover:not(:disabled){background:var(--rt-dark);border-color:var(--rt-dark)}
+button.ghost{background:transparent;color:var(--rt)}
+button.ghost:hover:not(:disabled){background:var(--panel);color:var(--rt-dark)}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid #f0b23c;outline-offset:2px}
+.search{position:relative;flex:1 1 220px}
+input[type=search]{width:100%;font:inherit;padding:7px 12px;border:0;border-bottom:2px solid var(--muted);border-radius:0;background:var(--panel);color:var(--ink)}
+input[type=search]:focus{border-bottom-color:var(--rt)}
+#results{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;padding:0;list-style:none;background:var(--paper);border:1px solid var(--rule);border-radius:4px;max-height:50vh;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+#results:empty{display:none}
+#results button{all:unset;display:block;width:100%;padding:8px 12px;cursor:pointer;box-sizing:border-box;border-left:3px solid transparent}
+#results button:hover,#results button:focus{background:var(--panel);border-left-color:var(--rt)}
+#results small{display:block;color:var(--muted)}
+#status{font-size:.85rem;color:var(--muted);margin-top:6px;min-height:1.2em}
+progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4px}
+#chart{flex:1;position:relative;overflow:hidden;background:var(--paper)}
+#chart svg{width:100%;height:100%;display:block;touch-action:none}
+.empty{max-width:34em;margin:40px auto;padding:0 20px;color:var(--muted)}
+.links path{fill:none;stroke:var(--rule);stroke-width:1.4}
+.node{cursor:pointer}
+.node circle{stroke-width:2.4;fill:var(--paper)}
+.node .t1{font-size:13px;font-weight:600;fill:var(--ink)}
+.node .t1 .cod{font-weight:700;fill:var(--muted)}
+.node .t2{font-size:11.5px;fill:var(--muted)}
+.node.sel .t1{fill:var(--rt)}
+.k-root{stroke:var(--ink)} .k-dg{stroke:var(--rt)} .k-dir{stroke:var(--diritti)} .k-set{stroke:var(--innovazione)} .k-eq{stroke:var(--sostenibilita)} .k-alt{stroke:var(--neutro)}
+.closed.k-root{fill:var(--ink)} .closed.k-dg{fill:var(--rt)} .closed.k-dir{fill:var(--diritti)} .closed.k-set{fill:var(--innovazione)} .closed.k-eq{fill:var(--sostenibilita)} .closed.k-alt{fill:var(--neutro)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);padding:6px 16px;border-top:1px solid var(--rule);background:var(--panel)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+#sheet{position:fixed;z-index:5;left:0;right:0;bottom:0;max-height:62vh;overflow:auto;background:var(--paper);border-top:4px solid var(--rt);
+  padding:14px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 30px rgba(0,0,0,.2)}
+@media (min-width:860px){#sheet{left:auto;top:0;width:420px;max-height:none;border-top:0;border-left:4px solid var(--rt);padding-top:calc(16px + env(safe-area-inset-top,0px))}}
+#sheet .codice{display:inline-block;background:var(--rt);color:#fff;font-weight:700;font-size:.85rem;padding:1px 8px;border-radius:3px;margin:0 0 6px}
+#sheet h2{font-size:1.2rem;line-height:1.2;margin:0 32px 4px 0}
+#sheet .tipo{color:var(--muted);font-size:.85rem;margin:0 0 12px}
+#sheet h3{font-size:.95rem;margin:16px 0 4px;color:var(--rt);font-weight:700}
+#sheet p,#sheet li{font-size:.92rem;margin:0 0 6px;max-width:62ch}
+#sheet ul{padding-left:18px;margin:0}
+#sheet a{color:var(--diritti);font-weight:600}
+#close{position:absolute;right:10px;top:10px;padding:2px 10px;background:transparent;color:var(--ink);border-color:var(--rule)}
+details.exp{position:relative}
+details.exp summary{list-style:none}
+details.exp summary::-webkit-details-marker{display:none}
+details.exp .menu{position:absolute;right:0;top:110%;display:flex;flex-direction:column;gap:6px;background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:8px;z-index:4;min-width:170px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="slim"><a href="https://www.regione.toscana.it" target="_blank" rel="noopener">Regione Toscana</a><span>Giunta regionale</span></div>
+  <div class="testata">
+    <div class="marchio" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <h1>Organigramma della Giunta regionale<small>Direzioni, settori e incarichi di elevata qualificazione</small></h1>
+  </div>
+  <div class="toolbar">
+  <div class="bar">
+    <button id="crawl">Scarica organigramma</button>
+    <div class="search">
+      <input id="q" type="search" placeholder="Cerca struttura o persona" autocomplete="off" disabled>
+      <ul id="results"></ul>
+    </div>
+    <details class="exp">
+      <summary><button class="ghost" id="expBtn" disabled tabindex="-1">Esporta</button></summary>
+      <div class="menu">
+        <button class="ghost" data-fmt="json">Grafo JSON</button>
+        <button class="ghost" data-fmt="graphml">GraphML (yEd, Gephi)</button>
+        <button class="ghost" data-fmt="csv">CSV archi</button>
+      </div>
+    </details>
+  </div>
+  <div id="status"></div>
+  <progress id="prog" hidden></progress>
+  </div>
+</header>
+<main id="chart"><p class="empty">Premi “Scarica organigramma”: la pagina visita la Direzione generale, scende nelle direzioni, nei settori e negli incarichi di elevata qualificazione, e costruisce il grafo. Servono circa uno o due minuti.</p></main>
+<div class="legend">
+  <span><i style="background:var(--rt)"></i>Direzione generale</span>
+  <span><i style="background:var(--diritti)"></i>Direzione</span>
+  <span><i style="background:var(--innovazione)"></i>Settore (dirigente)</span>
+  <span><i style="background:var(--sostenibilita)"></i>Elevata qualificazione (funzionario)</span>
+  <span><i style="background:var(--neutro)"></i>Altro</span>
+</div>
+<aside id="sheet" hidden><button id="close" aria-label="Chiudi">✕</button><div id="sheetBody"></div></aside>
+
+<script>
+const API = "/api/strutture?cmu=";
+const UFFICIALE = "https://www301.regione.toscana.it/bancadati/uffici/Strutture.xml?cmu=";
+const SEEDS = ["50112", "50135"]; // Direzione generale, Avvocatura
+const LS_KEY = "rt-organigramma-v1";
+const CONCURRENCY = 6;
+const ACRONIMI = new Set(["IT","PA","UE","ICT","PNRR","FESR","FSE","FEASR","PO","TPL","URP","RTD","AOO","SUAP","ARTEA","IRPET","ASL","RSA","VIA","VAS","AIA","GIS","PEC","CUP","FSC","PSR","ERP","DG"]);
+
+const store = new Map();
+const $ = s => document.querySelector(s);
+const statusEl = $("#status"), prog = $("#prog");
+
+/* ---------- parsing XML ---------- */
+const kids = (el, tag) => [...el.children].filter(c => c.tagName === tag);
+const t = (el, tag) => { const c = [...el.children].find(c => c.tagName === tag); return c ? c.textContent.replace(/\s+/g, " ").trim() : ""; };
+
+async function fetchXml(cmu) {
+  const r = await fetch(API + encodeURIComponent(cmu));
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const doc = new DOMParser().parseFromString(await r.text(), "application/xml");
+  if (doc.querySelector("parsererror")) throw new Error("XML non valido");
+  return doc.documentElement;
+}
+
+async function getStruttura(cmu) {
+  let root = await fetchXml(cmu);
+  if (!kids(root, "struttura").length && /^0/.test(cmu)) root = await fetchXml(String(parseInt(cmu, 10)));
+  const s = kids(root, "struttura")[0];
+  let incaricati = kids(root, "incaricato").map(i => ({
+    ruolo: t(i, "DESCRIZIONE"), nome: t(i, "NOME"), cognome: t(i, "COGNOME"), codice: t(i, "CODICE"), atto: t(i, "ATTO_DESCR")
+  }));
+  if (!incaricati.length) incaricati = kids(root, "incaricato_realtime").map(i => ({
+    ruolo: "", nome: t(i, "NOME"), cognome: t(i, "COGNOME"), codice: t(i, "CODICE"), atto: t(i, "PROVENIENZA_ATTO_DESCR")
+  }));
+  return {
+    id: cmu,
+    nome: s ? t(s, "NOME") : "",
+    tipo: s ? (t(s, "TIPOLOGIA") || t(s, "TIPO")) : "",
+    sottotipo: s ? t(s, "TIPO") : "",
+    descrizione: s ? t(s, "DESCRIZIONE") : "",
+    incaricati: incaricati.filter(i => i.cognome || i.nome),
+    contatti: kids(root, "incaricato_extra").map(e => ({
+      competenze: t(e, "COMPETENZE"), telefono: t(e, "TELEFONO"), email: t(e, "EMAIL"), pec: t(e, "PEC"), indirizzo: t(e, "INDIRIZZO")
+    })).filter(c => c.telefono || c.email || c.pec || c.indirizzo),
+    figli: kids(root, "strutturafiglio").map(f => ({ id: t(f, "CODICE"), nome: t(f, "NOME"), tipo: t(f, "TIPO"), livello: +t(f, "LIVELLO") || null }))
+  };
+}
+
+/* ---------- crawl in ampiezza ---------- */
+async function crawl() {
+  store.clear();
+  const queue = [...SEEDS], seen = new Set(queue), hint = new Map();
+  let active = 0, done = 0; const errori = [];
+  prog.hidden = false;
+  const tick = () => { prog.max = seen.size; prog.value = done; statusEl.textContent = `Strutture lette: ${done} di ${seen.size}${errori.length ? ` · errori: ${errori.length}` : ""}`; };
+  const worker = async () => {
+    for (;;) {
+      const id = queue.shift();
+      if (id === undefined) { if (active === 0) return; await new Promise(r => setTimeout(r, 60)); continue; }
+      active++;
+      try {
+        const n = await getStruttura(id);
+        const h = hint.get(id);
+        if (h) { n.nome ||= h.nome; n.tipo ||= h.tipo; n.livello = h.livello; }
+        store.set(id, n);
+        for (const f of n.figli) {
+          hint.set(f.id, f);
+          if (f.id && !seen.has(f.id)) { seen.add(f.id); queue.push(f.id); }
+        }
+      } catch (e) {
+        const h = hint.get(id) || {};
+        store.set(id, { id, nome: h.nome || id, tipo: h.tipo || "", livello: h.livello, descrizione: "", incaricati: [], contatti: [], figli: [], errore: e.message });
+        errori.push(id);
+      } finally { active--; done++; tick(); }
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  prog.hidden = true;
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), nodi: [...store.values()] })); } catch (e) {}
+  statusEl.textContent = `${store.size} strutture, ${persone().size} persone${errori.length ? `, ${errori.length} non lette` : ""} · aggiornato ora`;
+}
+
+/* ---------- modello ---------- */
+function kind(d) {
+  if (d.id === "RT") return "root";
+  const x = (d.tipo + " " + (d.sottotipo || "")).toUpperCase();
+  if (x.includes("DIREZIONE GENERALE")) return "dg";
+  if (x.includes("DIREZIONE")) return "dir";
+  if (x.includes("SETTORE")) return "set";
+  if (x.includes("QUALIFICAZIONE") || x.includes("POSIZIONE")) return "eq";
+  return "alt";
+}
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+function etichetta(nome) {
+  return cap(nome.split(/(\s+|[,.;:()'’-])/).map(w => ACRONIMI.has(w.toUpperCase()) && w.length > 1 ? w.toUpperCase() : w.toLowerCase()).join(""));
+}
+const titolo = s => s.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+const nomePersona = i => titolo(`${i.nome} ${i.cognome}`.trim());
+const corto = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
+
+function persone() {
+  const m = new Map();
+  for (const n of store.values()) for (const i of n.incaricati) {
+    const k = i.codice || nomePersona(i);
+    if (!m.has(k)) m.set(k, { id: k, nome: nomePersona(i), incarichi: [] });
+    m.get(k).incarichi.push({ struttura: n.id, ruolo: i.ruolo });
+  }
+  return m;
+}
+
+function buildTree() {
+  const figliDi = new Set();
+  for (const n of store.values()) n.figli.forEach(f => figliDi.add(f.id));
+  const radici = [...store.keys()].filter(id => !figliDi.has(id));
+  const conv = (id, path) => {
+    const n = store.get(id);
+    const p = new Set(path).add(id);
+    return { ...n, children: n.figli.map(f => f.id).filter(c => store.has(c) && !p.has(c)).map(c => conv(c, p)) };
+  };
+  return { id: "RT", nome: "Giunta regionale toscana", tipo: "", incaricati: [], contatti: [], figli: [], children: radici.map(r => conv(r, [])) };
+}
+
+/* ---------- grafo D3 ---------- */
+const DX = 40, DY = 350;
+let svg, g, zoom, rootH, tutti = [], selId = null;
+
+function render() {
+  const chart = $("#chart");
+  chart.innerHTML = "";
+  svg = d3.select(chart).append("svg");
+  g = svg.append("g");
+  g.append("g").attr("class", "links");
+  g.append("g").attr("class", "nodes");
+  zoom = d3.zoom().scaleExtent([0.15, 2.5]).on("zoom", e => g.attr("transform", e.transform));
+  svg.call(zoom).on("dblclick.zoom", null);
+
+  rootH = d3.hierarchy(buildTree(), d => d.children);
+  let k = 0;
+  rootH.each(d => { d.uid = d.data.id + "#" + (k++); d._children = d.children; });
+  tutti = rootH.descendants();
+  rootH.x0 = 0; rootH.y0 = 0;
+  update(rootH);
+  const h = chart.clientHeight;
+  svg.call(zoom.transform, d3.zoomIdentity.translate(30, h / 2).scale(0.5));
+  buildIndex();
+  $("#q").disabled = false; $("#expBtn").disabled = false;
+}
+
+function update(source) {
+  d3.tree().nodeSize([DX, DY])(rootH);
+  const nodes = rootH.descendants(), links = rootH.links();
+  const dur = 260;
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+
+  const node = g.select(".nodes").selectAll("g.node").data(nodes, d => d.uid);
+  const enter = node.enter().append("g").attr("class", "node")
+    .attr("transform", `translate(${source.y0},${source.x0})`)
+    .on("click", (e, d) => { toggle(d); select(d); });
+  enter.append("circle").attr("r", 6.5);
+  enter.append("text").attr("class", "t1").attr("x", 12).attr("dy", d => d.data.incaricati.length ? "-0.15em" : "0.35em")
+    .each(function (d) {
+      const el = d3.select(this);
+      if (d.data.id !== "RT") el.append("tspan").attr("class", "cod").text(d.data.id + "  ");
+      el.append("tspan").text(corto(etichetta(d.data.nome), 40));
+    });
+  enter.append("text").attr("class", "t2").attr("x", 12).attr("dy", "1.1em")
+    .text(d => d.data.incaricati.length ? nomePersona(d.data.incaricati[0]) + (d.data.incaricati.length > 1 ? ` +${d.data.incaricati.length - 1}` : "") : "");
+  enter.append("title").text(d => d.data.nome);
+
+  const all = enter.merge(node);
+  all.transition().duration(dur).attr("transform", d => `translate(${d.y},${d.x})`);
+  all.classed("sel", d => d.uid === selId);
+  all.select("circle").attr("class", d => `k-${kind(d.data)}${d._children && d._children.length && !d.children ? " closed" : ""}`);
+  node.exit().transition().duration(dur).attr("transform", `translate(${source.y},${source.x})`).remove();
+
+  const link = g.select(".links").selectAll("path").data(links, d => d.target.uid);
+  link.enter().append("path").attr("d", () => { const o = { x: source.x0, y: source.y0 }; return diag({ source: o, target: o }); })
+    .merge(link).transition().duration(dur).attr("d", diag);
+  link.exit().transition().duration(dur).attr("d", () => { const o = { x: source.x, y: source.y }; return diag({ source: o, target: o }); }).remove();
+
+  nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+}
+
+function toggle(d) {
+  if (!d._children || !d._children.length) return;
+  d.children = d.children ? null : d._children;
+  update(d);
+}
+
+function focusNode(d) {
+  for (let a = d.parent; a; a = a.parent) a.children = a._children;
+  update(rootH);
+  select(d);
+  const box = $("#chart"), k = 1;
+  svg.transition().duration(400).call(zoom.transform,
+    d3.zoomIdentity.translate(box.clientWidth / 3 - d.y * k, box.clientHeight / 2 - d.x * k).scale(k));
+}
+
+/* ---------- scheda ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function select(d) {
+  selId = d.uid;
+  g.selectAll("g.node").classed("sel", x => x.uid === selId);
+  const n = d.data;
+  if (n.id === "RT") { $("#sheet").hidden = true; return; }
+  const sotto = (d._children || []).length;
+  const tot = d.descendants ? (() => { let c = 0; (function w(x){ (x._children||[]).forEach(y => { c++; w(y); }); })(d); return c; })() : 0;
+  let h = `<span class="codice">${esc(n.id)}</span><h2>${esc(etichetta(n.nome))}</h2><p class="tipo">${esc(cap((n.tipo || "").toLowerCase()))}${n.sottotipo && n.sottotipo !== n.tipo ? ", " + esc(n.sottotipo.toLowerCase()) : ""}</p>`;
+  if (n.errore) h += `<p>Questa struttura non è stata letta (${esc(n.errore)}).</p>`;
+  if (n.incaricati.length) h += `<h3>Responsabile</h3><ul>${n.incaricati.map(i => `<li><strong>${esc(nomePersona(i))}</strong>${i.ruolo ? ", " + esc(i.ruolo.toLowerCase()) : ""}${i.atto ? `<br><small>${esc(i.atto)}</small>` : ""}</li>`).join("")}</ul>`;
+  if (sotto) h += `<h3>Strutture sottostanti</h3><p>${sotto} dirette, ${tot} in totale</p>`;
+  if (n.contatti.length) h += `<h3>Contatti</h3><ul>${n.contatti.map(c => `<li>${c.competenze ? esc(c.competenze) + "<br>" : ""}${c.telefono ? "Tel. " + esc(c.telefono) + " " : ""}${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ""}${c.pec ? `<br>PEC ${esc(c.pec)}` : ""}${c.indirizzo ? `<br>${esc(c.indirizzo)}` : ""}</li>`).join("")}</ul>`;
+  if (n.descrizione) h += `<h3>Competenze</h3><p>${esc(n.descrizione)}</p>`;
+  h += `<p style="margin-top:14px"><a href="${UFFICIALE + encodeURIComponent(n.id)}" target="_blank" rel="noopener">Apri la scheda sulla banca dati regionale</a></p>`;
+  $("#sheetBody").innerHTML = h;
+  $("#sheet").hidden = false;
+}
+$("#close").onclick = () => { $("#sheet").hidden = true; };
+
+/* ---------- ricerca ---------- */
+let indice = [];
+function buildIndex() {
+  indice = tutti.filter(d => d.data.id !== "RT").map(d => ({
+    d, txt: (d.data.id + " " + d.data.nome + " " + d.data.incaricati.map(nomePersona).join(" ")).toLowerCase()
+  }));
+}
+$("#q").addEventListener("input", e => {
+  const q = e.target.value.trim().toLowerCase(), ul = $("#results");
+  ul.innerHTML = "";
+  if (q.length < 2) return;
+  const parole = q.split(/\s+/);
+  indice.filter(x => parole.every(p => x.txt.includes(p))).slice(0, 25).forEach(x => {
+    const li = document.createElement("li"), b = document.createElement("button");
+    b.innerHTML = `<strong>${esc(x.d.data.id)}</strong> ${esc(etichetta(x.d.data.nome))}<small>${esc(x.d.data.incaricati.map(nomePersona).join(", ") || cap((x.d.data.tipo || "").toLowerCase()))}</small>`;
+    b.onclick = () => { ul.innerHTML = ""; e.target.blur(); focusNode(x.d); };
+    li.appendChild(b); ul.appendChild(li);
+  });
+});
+
+/* ---------- export ---------- */
+function grafo() {
+  const nodes = [], edges = [];
+  for (const n of store.values()) {
+    nodes.push({ id: "s:" + n.id, label: etichetta(n.nome), kind: kind(n), tipo: n.tipo, descrizione: n.descrizione });
+    n.figli.forEach(f => store.has(f.id) && edges.push({ source: "s:" + n.id, target: "s:" + f.id, rel: "contiene" }));
+  }
+  for (const p of persone().values()) {
+    nodes.push({ id: "p:" + p.id, label: p.nome, kind: "persona" });
+    p.incarichi.forEach(i => edges.push({ source: "p:" + p.id, target: "s:" + i.struttura, rel: (i.ruolo || "incaricato").toLowerCase() }));
+  }
+  return { nodes, edges };
+}
+function scarica(nome, testo, mime) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([testo], { type: mime }));
+  a.download = nome; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const xesc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
+document.querySelectorAll("[data-fmt]").forEach(b => b.onclick = () => {
+  const { nodes, edges } = grafo(), oggi = new Date().toISOString().slice(0, 10);
+  if (b.dataset.fmt === "json") scarica(`organigramma-rt-${oggi}.json`, JSON.stringify({ generato: oggi, nodes, edges }, null, 1), "application/json");
+  if (b.dataset.fmt === "csv") scarica(`organigramma-rt-archi-${oggi}.csv`, "source;target;rel;source_label;target_label\n" +
+    edges.map(e => { const L = id => nodes.find(n => n.id === id)?.label || ""; return [e.source, e.target, e.rel, L(e.source), L(e.target)].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"); }).join("\n"), "text/csv");
+  if (b.dataset.fmt === "graphml") scarica(`organigramma-rt-${oggi}.graphml`,
+    `<?xml version="1.0" encoding="UTF-8"?>\n<graphml xmlns="http://graphml.graphdrawing.org/xmlns">\n<key id="label" for="node" attr.name="label" attr.type="string"/>\n<key id="kind" for="node" attr.name="kind" attr.type="string"/>\n<key id="rel" for="edge" attr.name="rel" attr.type="string"/>\n<graph edgedefault="directed">\n` +
+    nodes.map(n => `<node id="${xesc(n.id)}"><data key="label">${xesc(n.label)}</data><data key="kind">${xesc(n.kind)}</data></node>`).join("\n") + "\n" +
+    edges.map((e, i) => `<edge id="e${i}" source="${xesc(e.source)}" target="${xesc(e.target)}"><data key="rel">${xesc(e.rel)}</data></edge>`).join("\n") +
+    "\n</graph>\n</graphml>", "application/xml");
+  b.closest("details").open = false;
+});
+
+/* ---------- avvio ---------- */
+$("#crawl").onclick = async () => {
+  const btn = $("#crawl"); btn.disabled = true; btn.textContent = "Scaricamento…";
+  try { await crawl(); render(); } catch (e) { statusEl.textContent = "Scaricamento interrotto: " + e.message + ". Riprova."; }
+  btn.disabled = false; btn.textContent = "Aggiorna organigramma";
+};
+try {
+  const c = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+  if (c && c.nodi && c.nodi.length) {
+    c.nodi.forEach(n => store.set(n.id, n));
+    render();
+    $("#crawl").textContent = "Aggiorna organigramma";
+    statusEl.textContent = `${store.size} strutture, ${persone().size} persone · dati del ${new Date(c.ts).toLocaleString("it-IT")}`;
+  }
+} catch (e) {}
+</script>
+</body>
+</html>
