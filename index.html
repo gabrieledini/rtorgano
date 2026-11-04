@@ -97,10 +97,9 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
     </div>
   </div>
   <div id="status"></div>
-  <progress id="prog" hidden></progress>
   </div>
 </header>
-<main id="chart"><p class="empty">Primo avvio: sto leggendo le strutture dalla banca dati regionale, dalla Direzione generale fino agli incarichi di elevata qualificazione. Servono uno o due minuti, poi i dati restano in cache su questo dispositivo.</p></main>
+<main id="chart"><p class="empty">Caricamento dell’organigramma…</p></main>
 <div class="legend">
   <span><i style="background:var(--rt)"></i>Direzione generale</span>
   <span><i style="background:var(--diritti)"></i>Direzione</span>
@@ -111,87 +110,14 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
 <aside id="sheet" hidden><button id="close" aria-label="Chiudi">✕</button><div id="sheetBody"></div></aside>
 
 <script>
-const API = "/api/strutture?cmu=";
 const UFFICIALE = "https://www301.regione.toscana.it/bancadati/uffici/Strutture.xml?cmu=";
 const ROOT = "50112"; // DIREZIONE GENERALE DELLA GIUNTA REGIONALE
-const SEEDS = [ROOT];
-const LS_KEY = "rt-organigramma-v2";
-const CONCURRENCY = 6;
+const DATI = "data/organigramma.json";
 const ACRONIMI = new Set(["IT","PA","UE","ICT","PNRR","FESR","FSE","FEASR","PO","TPL","URP","RTD","AOO","SUAP","ARTEA","IRPET","ASL","RSA","VIA","VAS","AIA","GIS","PEC","CUP","FSC","PSR","ERP","DG"]);
 
 const store = new Map();
 const $ = s => document.querySelector(s);
-const statusEl = $("#status"), prog = $("#prog");
-
-/* ---------- parsing XML ---------- */
-const kids = (el, tag) => [...el.children].filter(c => c.tagName === tag);
-const t = (el, tag) => { const c = [...el.children].find(c => c.tagName === tag); return c ? c.textContent.replace(/\s+/g, " ").trim() : ""; };
-
-async function fetchXml(cmu) {
-  const r = await fetch(API + encodeURIComponent(cmu));
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  const doc = new DOMParser().parseFromString(await r.text(), "application/xml");
-  if (doc.querySelector("parsererror")) throw new Error("XML non valido");
-  return doc.documentElement;
-}
-
-async function getStruttura(cmu) {
-  let root = await fetchXml(cmu);
-  if (!kids(root, "struttura").length && /^0/.test(cmu)) root = await fetchXml(String(parseInt(cmu, 10)));
-  const s = kids(root, "struttura")[0];
-  let incaricati = kids(root, "incaricato").map(i => ({
-    ruolo: t(i, "DESCRIZIONE"), nome: t(i, "NOME"), cognome: t(i, "COGNOME"), codice: t(i, "CODICE"), atto: t(i, "ATTO_DESCR")
-  }));
-  if (!incaricati.length) incaricati = kids(root, "incaricato_realtime").map(i => ({
-    ruolo: "", nome: t(i, "NOME"), cognome: t(i, "COGNOME"), codice: t(i, "CODICE"), atto: t(i, "PROVENIENZA_ATTO_DESCR")
-  }));
-  return {
-    id: cmu,
-    nome: s ? t(s, "NOME") : "",
-    tipo: s ? (t(s, "TIPOLOGIA") || t(s, "TIPO")) : "",
-    sottotipo: s ? t(s, "TIPO") : "",
-    descrizione: s ? t(s, "DESCRIZIONE") : "",
-    incaricati: incaricati.filter(i => i.cognome || i.nome),
-    contatti: kids(root, "incaricato_extra").map(e => ({
-      competenze: t(e, "COMPETENZE"), telefono: t(e, "TELEFONO"), email: t(e, "EMAIL"), pec: t(e, "PEC"), indirizzo: t(e, "INDIRIZZO")
-    })).filter(c => c.telefono || c.email || c.pec || c.indirizzo),
-    figli: kids(root, "strutturafiglio").map(f => ({ id: t(f, "CODICE"), nome: t(f, "NOME"), tipo: t(f, "TIPO"), livello: +t(f, "LIVELLO") || null }))
-  };
-}
-
-/* ---------- crawl in ampiezza ---------- */
-async function crawl() {
-  store.clear();
-  const queue = [...SEEDS], seen = new Set(queue), hint = new Map();
-  let active = 0, done = 0; const errori = [];
-  prog.hidden = false;
-  const tick = () => { prog.max = seen.size; prog.value = done; statusEl.textContent = `Strutture lette: ${done} di ${seen.size}${errori.length ? ` · errori: ${errori.length}` : ""}`; };
-  const worker = async () => {
-    for (;;) {
-      const id = queue.shift();
-      if (id === undefined) { if (active === 0) return; await new Promise(r => setTimeout(r, 60)); continue; }
-      active++;
-      try {
-        const n = await getStruttura(id);
-        const h = hint.get(id);
-        if (h) { n.nome ||= h.nome; n.tipo ||= h.tipo; n.livello = h.livello; }
-        store.set(id, n);
-        for (const f of n.figli) {
-          hint.set(f.id, f);
-          if (f.id && !seen.has(f.id)) { seen.add(f.id); queue.push(f.id); }
-        }
-      } catch (e) {
-        const h = hint.get(id) || {};
-        store.set(id, { id, nome: h.nome || id, tipo: h.tipo || "", livello: h.livello, descrizione: "", incaricati: [], contatti: [], figli: [], errore: e.message });
-        errori.push(id);
-      } finally { active--; done++; tick(); }
-    }
-  };
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  prog.hidden = true;
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), nodi: [...store.values()] })); } catch (e) {}
-  statusEl.textContent = `${store.size} strutture, ${persone().size} persone${errori.length ? `, ${errori.length} non lette` : ""} · aggiornato ora`;
-}
+const statusEl = $("#status");
 
 /* ---------- modello ---------- */
 function kind(d) {
@@ -347,18 +273,18 @@ $("#q").addEventListener("input", e => {
   });
 });
 
-/* ---------- avvio: cache, altrimenti scarica ---------- */
+/* ---------- avvio: dati statici dal repo ---------- */
 (async () => {
-  let c = null;
-  try { c = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch (e) {}
-  if (c && c.nodi && c.nodi.length) {
+  try {
+    const r = await fetch(DATI, { cache: "no-cache" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const c = await r.json();
     c.nodi.forEach(n => store.set(n.id, n));
     render();
-    statusEl.textContent = `${store.size} strutture, ${persone().size} persone · dati del ${new Date(c.ts).toLocaleString("it-IT")}`;
-    return;
+    statusEl.textContent = `${store.size} strutture, ${persone().size} persone · dati del ${new Date(c.generato).toLocaleDateString("it-IT")}`;
+  } catch (e) {
+    $("#chart").innerHTML = `<p class="empty">Non trovo ${DATI} (${esc(e.message)}). Avvia il workflow “Aggiorna organigramma” dalla scheda Actions del repository.</p>`;
   }
-  try { await crawl(); render(); }
-  catch (e) { statusEl.textContent = "Lettura interrotta: " + e.message + ". Ricarica la pagina per riprovare."; }
 })();
 </script>
 </body>
