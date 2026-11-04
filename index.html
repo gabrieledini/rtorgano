@@ -126,8 +126,9 @@ details.exp .menu{position:absolute;right:0;top:110%;display:flex;flex-direction
 <script>
 const API = "/api/strutture?cmu=";
 const UFFICIALE = "https://www301.regione.toscana.it/bancadati/uffici/Strutture.xml?cmu=";
-const SEEDS = ["50112", "50135"]; // Direzione generale, Avvocatura
-const LS_KEY = "rt-organigramma-v1";
+const ROOT = "50112"; // DIREZIONE GENERALE DELLA GIUNTA REGIONALE
+const SEEDS = [ROOT];
+const LS_KEY = "rt-organigramma-v2";
 const CONCURRENCY = 6;
 const ACRONIMI = new Set(["IT","PA","UE","ICT","PNRR","FESR","FSE","FEASR","PO","TPL","URP","RTD","AOO","SUAP","ARTEA","IRPET","ASL","RSA","VIA","VAS","AIA","GIS","PEC","CUP","FSC","PSR","ERP","DG"]);
 
@@ -234,15 +235,12 @@ function persone() {
 }
 
 function buildTree() {
-  const figliDi = new Set();
-  for (const n of store.values()) n.figli.forEach(f => figliDi.add(f.id));
-  const radici = [...store.keys()].filter(id => !figliDi.has(id));
   const conv = (id, path) => {
     const n = store.get(id);
     const p = new Set(path).add(id);
     return { ...n, children: n.figli.map(f => f.id).filter(c => store.has(c) && !p.has(c)).map(c => conv(c, p)) };
   };
-  return { id: "RT", nome: "Giunta regionale toscana", tipo: "", incaricati: [], contatti: [], figli: [], children: radici.map(r => conv(r, [])) };
+  return conv(ROOT, []);
 }
 
 /* ---------- grafo D3 ---------- */
