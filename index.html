@@ -66,6 +66,9 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
 .node.sel .t1{fill:var(--rt)}
 .k-root{stroke:var(--ink)} .k-dg{stroke:var(--rt)} .k-dir{stroke:var(--diritti)} .k-set{stroke:var(--innovazione)} .k-eq{stroke:var(--sostenibilita)} .k-alt{stroke:var(--neutro)}
 .closed.k-root{fill:var(--ink)} .closed.k-dg{fill:var(--rt)} .closed.k-dir{fill:var(--diritti)} .closed.k-set{fill:var(--innovazione)} .closed.k-eq{fill:var(--sostenibilita)} .closed.k-alt{fill:var(--neutro)}
+.zoomctl{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.zoomctl button{width:44px;height:44px;padding:0;font-size:1.4rem;line-height:1;background:var(--paper);color:var(--rt);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.zoomctl button:hover:not(:disabled){background:var(--rt);color:#fff}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);padding:6px 16px;border-top:1px solid var(--rule);background:var(--panel)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 #sheet{position:fixed;z-index:5;left:0;right:0;bottom:0;max-height:62vh;overflow:auto;background:var(--paper);border-top:4px solid var(--rt);
@@ -167,7 +170,7 @@ function render() {
   g = svg.append("g");
   g.append("g").attr("class", "links");
   g.append("g").attr("class", "nodes");
-  zoom = d3.zoom().scaleExtent([0.15, 2.5]).on("zoom", e => g.attr("transform", e.transform));
+  zoom = d3.zoom().scaleExtent([0.03, 4]).on("zoom", e => g.attr("transform", e.transform));
   svg.call(zoom).on("dblclick.zoom", null);
 
   rootH = d3.hierarchy(buildTree(), d => d.children);
@@ -178,6 +181,14 @@ function render() {
   update(rootH);
   const h = chart.clientHeight;
   svg.call(zoom.transform, d3.zoomIdentity.translate(30, h / 2).scale(0.5));
+  const ctl = document.createElement("div");
+  ctl.className = "zoomctl";
+  ctl.innerHTML = '<button aria-label="Ingrandisci" title="Ingrandisci">+</button><button aria-label="Riduci" title="Riduci">−</button><button aria-label="Adatta allo schermo" title="Adatta allo schermo">⤢</button>';
+  const [zin, zout, zfit] = ctl.querySelectorAll("button");
+  zin.onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1.5);
+  zout.onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.5);
+  zfit.onclick = adatta;
+  chart.appendChild(ctl);
   buildIndex();
   $("#q").disabled = false;
 }
@@ -215,6 +226,14 @@ function update(source) {
   link.exit().transition().duration(dur).attr("d", () => { const o = { x: source.x, y: source.y }; return diag({ source: o, target: o }); }).remove();
 
   nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+}
+
+function adatta() {
+  const b = g.node().getBBox(), box = $("#chart");
+  const w = box.clientWidth, h = box.clientHeight;
+  const k = Math.min(4, 0.95 * Math.min(w / b.width, h / b.height));
+  svg.transition().duration(400).call(zoom.transform,
+    d3.zoomIdentity.translate(w / 2 - (b.x + b.width / 2) * k, h / 2 - (b.y + b.height / 2) * k).scale(k));
 }
 
 function toggle(d) {
