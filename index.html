@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-org-chart@3.1.1/build/d3-org-chart.min.js"></script>
 <style>
 :root{
   color-scheme: light;
@@ -54,7 +56,6 @@ input[type=search]:focus{border-bottom-color:var(--rt)}
 #results small{display:block;color:var(--muted)}
 #status{font-size:.85rem;color:var(--muted);margin-top:6px;min-height:1.2em}
 progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4px}
-#chart{flex:1;position:relative;overflow:hidden;background:var(--paper)}
 #chart svg{width:100%;height:100%;display:block;touch-action:none}
 .empty{max-width:34em;margin:40px auto;padding:0 20px;color:var(--muted)}
 .links path{fill:none;stroke:var(--rule);stroke-width:1.4}
@@ -66,7 +67,6 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
 .node.sel .t1{fill:var(--rt)}
 .k-root{stroke:var(--ink)} .k-dg{stroke:var(--rt)} .k-dir{stroke:var(--diritti)} .k-set{stroke:var(--innovazione)} .k-eq{stroke:var(--sostenibilita)} .k-alt{stroke:var(--neutro)}
 .closed.k-root{fill:var(--ink)} .closed.k-dg{fill:var(--rt)} .closed.k-dir{fill:var(--diritti)} .closed.k-set{fill:var(--innovazione)} .closed.k-eq{fill:var(--sostenibilita)} .closed.k-alt{fill:var(--neutro)}
-.zoomctl{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
 .zoomctl button{width:44px;height:44px;padding:0;font-size:1.4rem;line-height:1;background:var(--paper);color:var(--rt);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .zoomctl button:hover:not(:disabled){background:var(--rt);color:#fff}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);padding:6px 16px;border-top:1px solid var(--rule);background:var(--panel)}
@@ -83,6 +83,59 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
 #sheet a{color:var(--diritti);font-weight:600}
 #close{position:absolute;right:10px;top:10px;padding:2px 10px;background:transparent;color:var(--ink);border-color:var(--rule)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ---- selettore vista ---- */
+.vista{display:flex;align-items:center;gap:6px;font-weight:600;font-size:.9rem;color:var(--muted)}
+.vista select{font:inherit;font-weight:600;color:var(--ink);background:var(--panel);border:0;border-bottom:2px solid var(--rt);border-radius:0;padding:6px 8px}
+#optSchede{display:flex;gap:6px}
+#optSchede[hidden]{display:none}
+button[aria-pressed="true"]{background:var(--rt);color:#fff}
+#stage{flex:1;position:relative;overflow:hidden}
+#chart{position:absolute;inset:0;overflow:hidden}
+#chart.v-elenco{overflow:auto;-webkit-overflow-scrolling:touch}
+.zoomctl{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.dot.k-dg{background:var(--rt)} .dot.k-dir{background:var(--diritti)} .dot.k-set{background:var(--innovazione)} .dot.k-eq{background:var(--sostenibilita)} .dot.k-alt{background:var(--neutro)}
+/* ---- vista radiale ---- */
+.radiale text{font-size:11px;fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:3px;stroke-linejoin:round}
+.radiale text .cod{fill:var(--muted);font-weight:700}
+.radiale .node.sel text{fill:var(--rt);font-weight:700}
+.radiale .node.sel circle{stroke-width:4}
+/* ---- vista elenco ---- */
+.elenco{--fs:15px;font-size:var(--fs);padding:8px 8px 90px;max-width:900px}
+.elenco details>.sub,.elenco .sub{margin-left:calc(var(--fs) * 1.1);border-left:1px solid var(--rule);padding-left:4px}
+.elenco summary{list-style:none;display:flex;align-items:flex-start}
+.elenco summary::-webkit-details-marker{display:none}
+.elenco .chev{flex:none;width:1.8em;height:1.8em;display:grid;place-items:center;color:var(--muted);cursor:pointer;transition:transform .15s}
+.elenco details[open]>summary .chev{transform:rotate(90deg)}
+.elenco .leaf{display:flex;align-items:flex-start;padding-left:1.8em}
+.elenco .riga{all:unset;cursor:pointer;display:flex;gap:.5em;align-items:baseline;padding:.3em .5em;border-radius:4px;flex:1;min-width:0}
+.elenco .riga:hover,.elenco .riga:focus-visible{background:var(--panel)}
+.elenco .riga.sel{background:var(--panel);box-shadow:inset 3px 0 0 var(--rt)}
+.elenco .riga .dot{align-self:center}
+.elenco .cod{font-weight:700;color:var(--muted);font-size:.85em}
+.elenco .nm{font-weight:600}
+.elenco .pr{color:var(--muted);font-size:.85em;white-space:nowrap}
+.elenco .n{color:var(--muted);font-size:.8em;margin-left:auto;white-space:nowrap}
+/* ---- vista schede (d3-org-chart) ---- */
+.org-card{width:100%;height:100%;padding:9px 12px 8px 14px;background:var(--paper);border:1px solid var(--rule);border-radius:6px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;
+  font-family:"Titillium Web",system-ui,sans-serif;cursor:pointer;position:relative;overflow:hidden}
+.org-card.selected{border-color:var(--rt);box-shadow:0 0 0 2px var(--rt)}
+.org-card-stripe{position:absolute;left:0;top:0;bottom:0;width:5px}
+.org-card-header{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.org-card-code{font-size:11px;font-weight:700;color:var(--muted);background:var(--panel);padding:1px 6px;border-radius:3px}
+.org-card-badge{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;color:#fff}
+.org-card-title{font-size:12.5px;font-weight:700;line-height:1.25;color:var(--ink);margin:4px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.org-card-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;border-top:1px solid var(--rule);padding-top:5px}
+.org-card-person{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.org-card-person small{display:block;font-size:9.5px;font-weight:400;color:var(--muted)}
+.org-card-count{font-size:10px;font-weight:600;color:var(--muted);background:var(--panel);padding:2px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+.org-expander{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:2px 8px;background:var(--paper);color:var(--muted);
+  border:1.5px solid var(--rule);border-radius:12px;font:700 10.5px "Titillium Web",sans-serif;cursor:pointer}
+/* ---- scheda: navigazione ---- */
+#sheet .nav{all:unset;cursor:pointer;display:flex;gap:8px;align-items:baseline;padding:5px 6px;border-radius:4px;font-size:.9rem;width:100%;box-sizing:border-box}
+#sheet .nav:hover,#sheet .nav:focus-visible{background:var(--panel)}
+#sheet .nav .dot{align-self:center}
 </style>
 </head>
 <body>
@@ -94,15 +147,34 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
   </div>
   <div class="toolbar">
   <div class="bar">
+    <label class="vista">Vista
+      <select id="vista">
+        <option value="albero">Albero</option>
+        <option value="schede">Schede</option>
+        <option value="radiale">Radiale</option>
+        <option value="elenco">Elenco</option>
+      </select>
+    </label>
+    <span id="optSchede" hidden>
+      <button class="ghost" id="bCompact" aria-pressed="true">Compatta</button>
+      <button class="ghost" id="bLayout">Verticale</button>
+    </span>
     <div class="search">
-      <input id="q" type="search" placeholder="Cerca struttura o persona" autocomplete="off" disabled>
+      <input id="q" type="search" placeholder="Cerca struttura, persona o codice" autocomplete="off" disabled>
       <ul id="results"></ul>
     </div>
   </div>
   <div id="status"></div>
   </div>
 </header>
-<main id="chart"><p class="empty">Caricamento dell’organigramma…</p></main>
+<div id="stage">
+  <main id="chart"><p class="empty">Caricamento dell’organigramma…</p></main>
+  <div class="zoomctl">
+    <button id="zin" aria-label="Ingrandisci" title="Ingrandisci">+</button>
+    <button id="zout" aria-label="Riduci" title="Riduci">−</button>
+    <button id="zfit" aria-label="Adatta allo schermo" title="Adatta allo schermo">⤢</button>
+  </div>
+</div>
 <div class="legend">
   <span><i style="background:var(--rt)"></i>Direzione generale</span>
   <span><i style="background:var(--diritti)"></i>Direzione</span>
@@ -116,178 +188,335 @@ progress{width:100%;height:4px;accent-color:var(--rt);display:block;margin-top:4
 const UFFICIALE = "https://www301.regione.toscana.it/bancadati/uffici/Strutture.xml?cmu=";
 const ROOT = "50112"; // DIREZIONE GENERALE DELLA GIUNTA REGIONALE
 const DATI = "data/organigramma.json";
+const VISTA_KEY = "rt-organigramma-vista";
 const ACRONIMI = new Set(["IT","PA","UE","ICT","PNRR","FESR","FSE","FEASR","PO","TPL","URP","RTD","AOO","SUAP","ARTEA","IRPET","ASL","RSA","VIA","VAS","AIA","GIS","PEC","CUP","FSC","PSR","ERP","DG"]);
+const COLORE = { dg: "var(--rt)", dir: "var(--diritti)", set: "var(--innovazione)", eq: "var(--sostenibilita)", alt: "var(--neutro)" };
+const ETICHETTA_TIPO = { dg: "Dir. generale", dir: "Direzione", set: "Settore", eq: "E.Q.", alt: "Altro" };
 
-const store = new Map();
+const store = new Map();          // id -> struttura
+const parentMap = new Map();      // id -> id padre (albero univoco dalla radice)
+const childrenMap = new Map();    // id -> [id figli]
+const ordine = [];                // id raggiungibili in ordine di visita
 const $ = s => document.querySelector(s);
 const statusEl = $("#status");
+let selId = null, vista = null;
 
 /* ---------- modello ---------- */
 function kind(d) {
-  if (d.id === "RT") return "root";
-  const x = (d.tipo + " " + (d.sottotipo || "")).toUpperCase();
-  if (x.includes("DIREZIONE GENERALE")) return "dg";
+  const x = ((d.tipo || "") + " " + (d.sottotipo || "")).toUpperCase();
+  if (d.id === ROOT || x.includes("DIREZIONE GENERALE")) return "dg";
   if (x.includes("DIREZIONE")) return "dir";
   if (x.includes("SETTORE")) return "set";
   if (x.includes("QUALIFICAZIONE") || x.includes("POSIZIONE")) return "eq";
   return "alt";
 }
-const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 function etichetta(nome) {
-  return cap(nome.split(/(\s+|[,.;:()'’-])/).map(w => ACRONIMI.has(w.toUpperCase()) && w.length > 1 ? w.toUpperCase() : w.toLowerCase()).join(""));
+  return cap((nome || "").split(/(\s+|[,.;:()'’-])/).map(w => ACRONIMI.has(w.toUpperCase()) && w.length > 1 ? w.toUpperCase() : w.toLowerCase()).join(""));
 }
-const titolo = s => s.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
-const nomePersona = i => titolo(`${i.nome} ${i.cognome}`.trim());
+const titolo = s => (s || "").toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+const nomePersona = i => titolo(`${i.nome || ""} ${i.cognome || ""}`.trim());
 const corto = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const responsabile = n => n.incaricati && n.incaricati.length
+  ? nomePersona(n.incaricati[0]) + (n.incaricati.length > 1 ? ` +${n.incaricati.length - 1}` : "") : "";
 
 function persone() {
-  const m = new Map();
-  for (const n of store.values()) for (const i of n.incaricati) {
-    const k = i.codice || nomePersona(i);
-    if (!m.has(k)) m.set(k, { id: k, nome: nomePersona(i), incarichi: [] });
-    m.get(k).incarichi.push({ struttura: n.id, ruolo: i.ruolo });
-  }
+  const m = new Set();
+  for (const n of store.values()) for (const i of (n.incaricati || [])) m.add(i.codice || nomePersona(i));
   return m;
 }
 
-function buildTree() {
-  const conv = (id, path) => {
-    const n = store.get(id);
-    const p = new Set(path).add(id);
-    return { ...n, children: n.figli.map(f => f.id).filter(c => store.has(c) && !p.has(c)).map(c => conv(c, p)) };
-  };
-  return conv(ROOT, []);
+// Albero univoco: ogni struttura compare una sola volta, sotto il primo padre trovato in ampiezza
+function costruisciGerarchia() {
+  const q = [ROOT], seen = new Set(q);
+  while (q.length) {
+    const id = q.shift();
+    ordine.push(id);
+    const figli = [];
+    for (const f of (store.get(id).figli || [])) {
+      if (store.has(f.id) && !seen.has(f.id)) { seen.add(f.id); parentMap.set(f.id, id); figli.push(f.id); q.push(f.id); }
+    }
+    childrenMap.set(id, figli);
+  }
 }
+const nested = id => ({ ...store.get(id), children: childrenMap.get(id).map(nested) });
+function discendenti(id) { let c = 0; for (const f of childrenMap.get(id) || []) c += 1 + discendenti(f); return c; }
 
-/* ---------- grafo D3 ---------- */
-const DX = 40, DY = 350;
-let svg, g, zoom, rootH, tutti = [], selId = null;
-
-function render() {
-  const chart = $("#chart");
-  chart.innerHTML = "";
-  svg = d3.select(chart).append("svg");
-  g = svg.append("g");
-  g.append("g").attr("class", "links");
-  g.append("g").attr("class", "nodes");
-  zoom = d3.zoom().scaleExtent([0.03, 4]).on("zoom", e => g.attr("transform", e.transform));
+/* ---------- utilità per le viste SVG ---------- */
+function svgZoom(el) {
+  const svg = d3.select(el).append("svg");
+  const g = svg.append("g");
+  const zoom = d3.zoom().scaleExtent([0.03, 4]).on("zoom", e => g.attr("transform", e.transform));
   svg.call(zoom).on("dblclick.zoom", null);
-
-  rootH = d3.hierarchy(buildTree(), d => d.children);
-  let k = 0;
-  rootH.each(d => { d.uid = d.data.id + "#" + (k++); d._children = d.children; });
-  tutti = rootH.descendants();
-  rootH.x0 = 0; rootH.y0 = 0;
-  update(rootH);
-  const h = chart.clientHeight;
-  svg.call(zoom.transform, d3.zoomIdentity.translate(30, h / 2).scale(0.5));
-  const ctl = document.createElement("div");
-  ctl.className = "zoomctl";
-  ctl.innerHTML = '<button aria-label="Ingrandisci" title="Ingrandisci">+</button><button aria-label="Riduci" title="Riduci">−</button><button aria-label="Adatta allo schermo" title="Adatta allo schermo">⤢</button>';
-  const [zin, zout, zfit] = ctl.querySelectorAll("button");
-  zin.onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1.5);
-  zout.onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.5);
-  zfit.onclick = adatta;
-  chart.appendChild(ctl);
-  buildIndex();
-  $("#q").disabled = false;
+  const fit = () => {
+    const b = g.node().getBBox(), w = el.clientWidth, h = el.clientHeight;
+    if (!b.width) return;
+    const k = Math.min(4, 0.95 * Math.min(w / b.width, h / b.height));
+    svg.transition().duration(400).call(zoom.transform,
+      d3.zoomIdentity.translate(w / 2 - (b.x + b.width / 2) * k, h / 2 - (b.y + b.height / 2) * k).scale(k));
+  };
+  const centra = (x, y, k = 1) => svg.transition().duration(400).call(zoom.transform,
+    d3.zoomIdentity.translate(el.clientWidth / 2 - x * k, el.clientHeight / 2 - y * k).scale(k));
+  return {
+    svg, g, zoom, fit, centra,
+    zoomIn: () => svg.transition().duration(250).call(zoom.scaleBy, 1.5),
+    zoomOut: () => svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.5)
+  };
 }
 
-function update(source) {
-  d3.tree().nodeSize([DX, DY])(rootH);
-  const nodes = rootH.descendants(), links = rootH.links();
-  const dur = 260;
-  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
-
-  const node = g.select(".nodes").selectAll("g.node").data(nodes, d => d.uid);
-  const enter = node.enter().append("g").attr("class", "node")
-    .attr("transform", `translate(${source.y0},${source.x0})`)
-    .on("click", (e, d) => { toggle(d); select(d); });
-  enter.append("circle").attr("r", 6.5);
-  enter.append("text").attr("class", "t1").attr("x", 12).attr("dy", d => d.data.incaricati.length ? "-0.15em" : "0.35em")
-    .each(function (d) {
-      const el = d3.select(this);
-      if (d.data.id !== "RT") el.append("tspan").attr("class", "cod").text(d.data.id + "  ");
-      el.append("tspan").text(corto(etichetta(d.data.nome), 40));
-    });
-  enter.append("text").attr("class", "t2").attr("x", 12).attr("dy", "1.1em")
-    .text(d => d.data.incaricati.length ? nomePersona(d.data.incaricati[0]) + (d.data.incaricati.length > 1 ? ` +${d.data.incaricati.length - 1}` : "") : "");
-  enter.append("title").text(d => d.data.nome);
-
-  const all = enter.merge(node);
-  all.transition().duration(dur).attr("transform", d => `translate(${d.y},${d.x})`);
-  all.classed("sel", d => d.uid === selId);
-  all.select("circle").attr("class", d => `k-${kind(d.data)}${d._children && d._children.length && !d.children ? " closed" : ""}`);
-  node.exit().transition().duration(dur).attr("transform", `translate(${source.y},${source.x})`).remove();
-
-  const link = g.select(".links").selectAll("path").data(links, d => d.target.uid);
-  link.enter().append("path").attr("d", () => { const o = { x: source.x0, y: source.y0 }; return diag({ source: o, target: o }); })
-    .merge(link).transition().duration(dur).attr("d", diag);
-  link.exit().transition().duration(dur).attr("d", () => { const o = { x: source.x, y: source.y }; return diag({ source: o, target: o }); }).remove();
-
-  nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+/* ---------- VISTA 1: albero orizzontale comprimibile ---------- */
+function VistaAlbero() {
+  const DX = 40, DY = 350;
+  let z, rootH, tutti;
+  function update(source) {
+    d3.tree().nodeSize([DX, DY])(rootH);
+    const nodes = rootH.descendants(), links = rootH.links(), dur = 260;
+    const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+    const node = z.g.select(".nodes").selectAll("g.node").data(nodes, d => d.data.id);
+    const enter = node.enter().append("g").attr("class", "node")
+      .attr("transform", `translate(${source.y0},${source.x0})`)
+      .on("click", (e, d) => { toggle(d); scegli(d.data.id); });
+    enter.append("circle").attr("r", 6.5);
+    enter.append("text").attr("class", "t1").attr("x", 12).attr("dy", d => d.data.incaricati.length ? "-0.15em" : "0.35em")
+      .each(function (d) {
+        const el = d3.select(this);
+        el.append("tspan").attr("class", "cod").text(d.data.id + "  ");
+        el.append("tspan").text(corto(etichetta(d.data.nome), 40));
+      });
+    enter.append("text").attr("class", "t2").attr("x", 12).attr("dy", "1.1em").text(d => responsabile(d.data));
+    enter.append("title").text(d => d.data.nome);
+    const all = enter.merge(node);
+    all.transition().duration(dur).attr("transform", d => `translate(${d.y},${d.x})`);
+    all.classed("sel", d => d.data.id === selId);
+    all.select("circle").attr("class", d => `k-${kind(d.data)}${d._children && d._children.length && !d.children ? " closed" : ""}`);
+    node.exit().transition().duration(dur).attr("transform", `translate(${source.y},${source.x})`).remove();
+    const link = z.g.select(".links").selectAll("path").data(links, d => d.target.data.id);
+    link.enter().append("path").attr("d", () => { const o = { x: source.x0, y: source.y0 }; return diag({ source: o, target: o }); })
+      .merge(link).transition().duration(dur).attr("d", diag);
+    link.exit().transition().duration(dur).attr("d", () => { const o = { x: source.x, y: source.y }; return diag({ source: o, target: o }); }).remove();
+    nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  }
+  function toggle(d) {
+    if (!d._children || !d._children.length) return;
+    d.children = d.children ? null : d._children;
+    update(d);
+  }
+  return {
+    mount(el) {
+      z = svgZoom(el);
+      z.g.append("g").attr("class", "links");
+      z.g.append("g").attr("class", "nodes");
+      rootH = d3.hierarchy(nested(ROOT));
+      rootH.each(d => { d._children = d.children; });
+      tutti = rootH.descendants();
+      rootH.x0 = 0; rootH.y0 = 0;
+      update(rootH);
+      z.svg.call(z.zoom.transform, d3.zoomIdentity.translate(30, el.clientHeight / 2).scale(0.5));
+    },
+    focus(id) {
+      const d = tutti.find(x => x.data.id === id); if (!d) return;
+      for (let a = d.parent; a; a = a.parent) a.children = a._children;
+      update(rootH);
+      z.centra(d.y + 150, d.x, 1);
+    },
+    mark() { z.g.selectAll("g.node").classed("sel", d => d.data.id === selId); },
+    zoomIn: () => z.zoomIn(), zoomOut: () => z.zoomOut(), fit: () => z.fit()
+  };
 }
 
-function adatta() {
-  const b = g.node().getBBox(), box = $("#chart");
-  const w = box.clientWidth, h = box.clientHeight;
-  const k = Math.min(4, 0.95 * Math.min(w / b.width, h / b.height));
-  svg.transition().duration(400).call(zoom.transform,
-    d3.zoomIdentity.translate(w / 2 - (b.x + b.width / 2) * k, h / 2 - (b.y + b.height / 2) * k).scale(k));
+/* ---------- VISTA 2: schede (d3-org-chart, proposta del collega) ---------- */
+const opzSchede = { compact: true, layout: "top" };
+function VistaSchede() {
+  let chart;
+  const card = d => {
+    const n = d.data, k = kind(n), col = COLORE[k];
+    const resp = n.incaricati && n.incaricati[0];
+    const sotto = (childrenMap.get(n.id) || []).length;
+    return `<div class="org-card${n.id === selId ? " selected" : ""}">
+      <div class="org-card-stripe" style="background:${col}"></div>
+      <div class="org-card-header"><span class="org-card-code">${esc(n.id)}</span>
+        <span class="org-card-badge" style="background:${col}">${ETICHETTA_TIPO[k]}</span></div>
+      <div class="org-card-title" title="${esc(n.nome)}">${esc(etichetta(n.nome))}</div>
+      <div class="org-card-footer">
+        <div class="org-card-person">${resp ? esc(responsabile(n)) + (resp.ruolo ? `<small>${esc(cap(resp.ruolo.toLowerCase()))}</small>` : "") : "<small>Nessun incaricato</small>"}</div>
+        ${sotto ? `<span class="org-card-count">${sotto} ${sotto === 1 ? "struttura" : "strutture"}</span>` : ""}
+      </div></div>`;
+  };
+  return {
+    mount(el) {
+      const flat = ordine.map(id => ({ ...store.get(id), parentId: parentMap.get(id) || "" }));
+      chart = new d3.OrgChart()
+        .container(el).svgHeight(el.clientHeight).data(flat)
+        .nodeId(d => d.id).parentNodeId(d => d.parentId)
+        .nodeWidth(() => 280).nodeHeight(() => 118)
+        .siblingsMargin(() => 20).childrenMargin(() => 48)
+        .compactMarginBetween(() => 20).compactMarginPair(() => 45)
+        .nodeButtonWidth(() => 50).nodeButtonHeight(() => 24).nodeButtonX(() => -25).nodeButtonY(() => -12)
+        .compact(opzSchede.compact).layout(opzSchede.layout).duration(0)
+        .linkUpdate(function (d) {
+          d3.select(this)
+            .attr("stroke", d => d.data._upToTheRootHighlighted ? "var(--rt)" : "var(--rule)")
+            .attr("stroke-width", d => d.data._upToTheRootHighlighted ? 2.5 : 1.4);
+        })
+        .buttonContent(({ node }) => `<div class="org-expander">${node.children ? "▲" : "▼"} ${(node.children || node._children || []).length}</div>`)
+        .nodeContent(card)
+        .onNodeClick(d => scegli(d.data ? d.data.id : d))
+        .initialExpandLevel(1)   // Direzione generale + direzioni; il resto si apre col pulsante sotto ogni scheda
+        .render();
+      chart.duration(300);
+      if (!selId) chart.setCentered(ROOT).render();
+    },
+    focus(id) {
+      chart.clearHighlighting().setUpToTheRootHighlighted(id).setCentered(id).render();
+      const nodo = chart.getChartState().allNodes.filter(d => d.data.id === id);
+      setTimeout(() => chart.fit({ nodes: nodo }), 350);
+    },
+    mark() { chart.render(); },
+    opzioni() { chart.compact(opzSchede.compact).layout(opzSchede.layout).render().fit(); },
+    zoomIn: () => chart.zoomIn(), zoomOut: () => chart.zoomOut(), fit: () => chart.fit()
+  };
 }
 
-function toggle(d) {
-  if (!d._children || !d._children.length) return;
-  d.children = d.children ? null : d._children;
-  update(d);
+/* ---------- VISTA 3: radiale ---------- */
+function VistaRadiale() {
+  let z, nodi;
+  const polare = d => [d.y * Math.cos(d.x - Math.PI / 2), d.y * Math.sin(d.x - Math.PI / 2)];
+  return {
+    mount(el) {
+      z = svgZoom(el);
+      z.g.attr("class", "radiale");
+      const root = d3.hierarchy(nested(ROOT));
+      const R = Math.max(320, root.leaves().length * 15 / (2 * Math.PI));
+      d3.tree().size([2 * Math.PI, R]).separation((a, b) => (a.parent === b.parent ? 1 : 2) / a.depth)(root);
+      nodi = root.descendants();
+      z.g.append("g").attr("class", "links").selectAll("path").data(root.links()).join("path")
+        .attr("d", d3.linkRadial().angle(d => d.x).radius(d => d.y));
+      const node = z.g.append("g").selectAll("g").data(nodi).join("g")
+        .attr("class", "node")
+        .attr("transform", d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`)
+        .on("click", (e, d) => scegli(d.data.id));
+      node.append("circle").attr("r", d => d.depth === 0 ? 9 : 4.5).attr("class", d => `k-${kind(d.data)} closed`);
+      node.filter(d => d.depth > 0).append("text")
+        .attr("dy", "0.31em")
+        .attr("x", d => d.x < Math.PI === !d.children ? 8 : -8)
+        .attr("text-anchor", d => d.x < Math.PI === !d.children ? "start" : "end")
+        .attr("transform", d => d.x >= Math.PI ? "rotate(180)" : null)
+        .each(function (d) {
+          const t = d3.select(this);
+          t.append("tspan").attr("class", "cod").text(d.data.id + " ");
+          t.append("tspan").text(corto(etichetta(d.data.nome), 34));
+        });
+      node.append("title").text(d => `${d.data.id} ${d.data.nome}${responsabile(d.data) ? "\n" + responsabile(d.data) : ""}`);
+      z.fit();
+    },
+    focus(id) { const d = nodi.find(x => x.data.id === id); if (d) { const [x, y] = polare(d); z.centra(x, y, 1); } },
+    mark() { z.g.selectAll("g.node").classed("sel", d => d.data.id === selId); },
+    zoomIn: () => z.zoomIn(), zoomOut: () => z.zoomOut(), fit: () => z.fit()
+  };
 }
 
-function focusNode(d) {
-  for (let a = d.parent; a; a = a.parent) a.children = a._children;
-  update(rootH);
-  select(d);
-  const box = $("#chart"), k = 1;
-  svg.transition().duration(400).call(zoom.transform,
-    d3.zoomIdentity.translate(box.clientWidth / 3 - d.y * k, box.clientHeight / 2 - d.x * k).scale(k));
+/* ---------- VISTA 4: elenco indentato (comodo da telefono) ---------- */
+function VistaElenco() {
+  let box, fs = 15;
+  const riga = n => `<button class="riga" data-id="${esc(n.id)}"><span class="dot k-${kind(n)}"></span>
+    <span><span class="cod">${esc(n.id)}</span> <span class="nm">${esc(etichetta(n.nome))}</span>
+    ${responsabile(n) ? `<br><span class="pr">${esc(responsabile(n))}</span>` : ""}</span></button>`;
+  const html = id => {
+    const n = store.get(id), figli = childrenMap.get(id) || [];
+    if (!figli.length) return `<div class="leaf">${riga(n)}</div>`;
+    return `<details open data-id="${esc(id)}"><summary><span class="chev" aria-hidden="true">▸</span>${riga(n)}
+      <span class="n">${figli.length}</span></summary><div class="sub">${figli.map(html).join("")}</div></details>`;
+  };
+  const setFs = v => { fs = Math.max(9, Math.min(30, v)); box.style.setProperty("--fs", fs + "px"); };
+  return {
+    mount(el) {
+      box = document.createElement("div");
+      box.className = "elenco";
+      box.innerHTML = html(ROOT);
+      el.appendChild(box);
+      box.addEventListener("click", e => {
+        const b = e.target.closest(".riga");
+        if (b) { e.preventDefault(); scegli(b.dataset.id); }   // il testo apre la scheda, la freccia apre/chiude
+      });
+    },
+    focus(id) {
+      const b = box.querySelector(`.riga[data-id="${CSS.escape(id)}"]`); if (!b) return;
+      for (let d = b.closest("details"); d; d = d.parentElement.closest("details")) d.open = true;
+      b.scrollIntoView({ block: "center", behavior: "smooth" });
+    },
+    mark() { box.querySelectorAll(".riga").forEach(b => b.classList.toggle("sel", b.dataset.id === selId)); },
+    zoomIn: () => setFs(fs * 1.15), zoomOut: () => setFs(fs / 1.15), fit: () => setFs(15)
+  };
 }
 
-/* ---------- scheda ---------- */
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-function select(d) {
-  selId = d.uid;
-  g.selectAll("g.node").classed("sel", x => x.uid === selId);
-  const n = d.data;
-  if (n.id === "RT") { $("#sheet").hidden = true; return; }
-  const sotto = (d._children || []).length;
-  const tot = d.descendants ? (() => { let c = 0; (function w(x){ (x._children||[]).forEach(y => { c++; w(y); }); })(d); return c; })() : 0;
+const VISTE = { albero: VistaAlbero, schede: VistaSchede, radiale: VistaRadiale, elenco: VistaElenco };
+
+function setVista(nome) {
+  if (!VISTE[nome]) nome = "albero";
+  if (nome === "schede" && !d3.OrgChart) { statusEl.textContent = "La libreria delle schede non si è caricata: uso l’albero."; nome = "albero"; }
+  const el = $("#chart");
+  el.innerHTML = "";
+  el.className = "v-" + nome;
+  $("#vista").value = nome;
+  $("#optSchede").hidden = nome !== "schede";
+  vista = VISTE[nome]();
+  vista.mount(el);
+  if (selId) { vista.mark(); vista.focus(selId); }
+  try { localStorage.setItem(VISTA_KEY, nome); } catch (e) {}
+}
+$("#vista").onchange = e => setVista(e.target.value);
+$("#bCompact").onclick = e => {
+  opzSchede.compact = !opzSchede.compact;
+  e.currentTarget.setAttribute("aria-pressed", opzSchede.compact);
+  vista.opzioni && vista.opzioni();
+};
+$("#bLayout").onclick = e => {
+  opzSchede.layout = opzSchede.layout === "top" ? "left" : "top";
+  e.currentTarget.textContent = opzSchede.layout === "top" ? "Verticale" : "Orizzontale";
+  vista.opzioni && vista.opzioni();
+};
+$("#zin").onclick = () => vista && vista.zoomIn();
+$("#zout").onclick = () => vista && vista.zoomOut();
+$("#zfit").onclick = () => vista && vista.fit();
+
+/* ---------- selezione e scheda ---------- */
+function scegli(id) {
+  if (!store.has(id)) return;
+  selId = id;
+  vista && vista.mark();
+  mostraScheda(id);
+}
+function vai(id) { scegli(id); vista && vista.focus(id); }
+
+const navBtn = id => { const n = store.get(id); return `<button class="nav" data-vai="${esc(id)}"><span class="dot k-${kind(n)}"></span><span><strong>${esc(id)}</strong> ${esc(etichetta(n.nome))}</span></button>`; };
+function mostraScheda(id) {
+  const n = store.get(id), figli = childrenMap.get(id) || [], padre = parentMap.get(id);
   let h = `<span class="codice">${esc(n.id)}</span><h2>${esc(etichetta(n.nome))}</h2><p class="tipo">${esc(cap((n.tipo || "").toLowerCase()))}${n.sottotipo && n.sottotipo !== n.tipo ? ", " + esc(n.sottotipo.toLowerCase()) : ""}</p>`;
   if (n.errore) h += `<p>Questa struttura non è stata letta (${esc(n.errore)}).</p>`;
   if (n.incaricati.length) h += `<h3>Responsabile</h3><ul>${n.incaricati.map(i => `<li><strong>${esc(nomePersona(i))}</strong>${i.ruolo ? ", " + esc(i.ruolo.toLowerCase()) : ""}${i.atto ? `<br><small>${esc(i.atto)}</small>` : ""}</li>`).join("")}</ul>`;
-  if (sotto) h += `<h3>Strutture sottostanti</h3><p>${sotto} dirette, ${tot} in totale</p>`;
+  if (padre) h += `<h3>Struttura superiore</h3>${navBtn(padre)}`;
+  if (figli.length) h += `<h3>Strutture sottostanti (${figli.length} dirette, ${discendenti(id)} in totale)</h3>${figli.map(navBtn).join("")}`;
   if (n.contatti.length) h += `<h3>Contatti</h3><ul>${n.contatti.map(c => `<li>${c.competenze ? esc(c.competenze) + "<br>" : ""}${c.telefono ? "Tel. " + esc(c.telefono) + " " : ""}${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ""}${c.pec ? `<br>PEC ${esc(c.pec)}` : ""}${c.indirizzo ? `<br>${esc(c.indirizzo)}` : ""}</li>`).join("")}</ul>`;
   if (n.descrizione) h += `<h3>Competenze</h3><p>${esc(n.descrizione)}</p>`;
   h += `<p style="margin-top:14px"><a href="${UFFICIALE + encodeURIComponent(n.id)}" target="_blank" rel="noopener">Apri la scheda sulla banca dati regionale</a></p>`;
   $("#sheetBody").innerHTML = h;
   $("#sheet").hidden = false;
 }
+$("#sheetBody").addEventListener("click", e => { const b = e.target.closest("[data-vai]"); if (b) vai(b.dataset.vai); });
 $("#close").onclick = () => { $("#sheet").hidden = true; };
 
 /* ---------- ricerca ---------- */
 let indice = [];
-function buildIndex() {
-  indice = tutti.filter(d => d.data.id !== "RT").map(d => ({
-    d, txt: (d.data.id + " " + d.data.nome + " " + d.data.incaricati.map(nomePersona).join(" ")).toLowerCase()
-  }));
-}
 $("#q").addEventListener("input", e => {
   const q = e.target.value.trim().toLowerCase(), ul = $("#results");
   ul.innerHTML = "";
   if (q.length < 2) return;
   const parole = q.split(/\s+/);
   indice.filter(x => parole.every(p => x.txt.includes(p))).slice(0, 25).forEach(x => {
-    const li = document.createElement("li"), b = document.createElement("button");
-    b.innerHTML = `<strong>${esc(x.d.data.id)}</strong> ${esc(etichetta(x.d.data.nome))}<small>${esc(x.d.data.incaricati.map(nomePersona).join(", ") || cap((x.d.data.tipo || "").toLowerCase()))}</small>`;
-    b.onclick = () => { ul.innerHTML = ""; e.target.blur(); focusNode(x.d); };
+    const n = store.get(x.id), li = document.createElement("li"), b = document.createElement("button");
+    b.innerHTML = `<strong>${esc(n.id)}</strong> ${esc(etichetta(n.nome))}<small>${esc(n.incaricati.map(nomePersona).join(", ") || cap((n.tipo || "").toLowerCase()))}</small>`;
+    b.onclick = () => { ul.innerHTML = ""; e.target.value = ""; e.target.blur(); vai(n.id); };
     li.appendChild(b); ul.appendChild(li);
   });
 });
@@ -299,10 +528,16 @@ $("#q").addEventListener("input", e => {
     if (!r.ok) throw new Error("HTTP " + r.status);
     const c = await r.json();
     c.nodi.forEach(n => store.set(n.id, n));
-    render();
-    statusEl.textContent = `${store.size} strutture, ${persone().size} persone · dati del ${new Date(c.generato).toLocaleDateString("it-IT")}`;
+    if (!store.has(ROOT)) throw new Error("radice " + ROOT + " assente");
+    costruisciGerarchia();
+    indice = ordine.map(id => { const n = store.get(id); return { id, txt: `${id} ${n.nome} ${n.incaricati.map(nomePersona).join(" ")}`.toLowerCase() }; });
+    let iniziale = "albero";
+    try { iniziale = localStorage.getItem(VISTA_KEY) || iniziale; } catch (e) {}
+    setVista(iniziale);
+    $("#q").disabled = false;
+    statusEl.textContent = `${ordine.length} strutture, ${persone().size} persone · dati del ${new Date(c.generato).toLocaleDateString("it-IT")}`;
   } catch (e) {
-    $("#chart").innerHTML = `<p class="empty">Non trovo ${DATI} (${esc(e.message)}). Avvia il workflow “Aggiorna organigramma” dalla scheda Actions del repository.</p>`;
+    $("#chart").innerHTML = `<p class="empty">Non riesco a leggere ${DATI} (${esc(e.message)}).</p>`;
   }
 })();
 </script>
